@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+    xmlns="http://www.mulesoft.org/schema/mule/core"
+    xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a1268c2c-ca74-4d4b-b54e-8a854307613c" >
+        <http:listener-connection host="0.0.0.0" port="8081" />
+    </http:listener-config>
+    <http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="f1ea186b-2d3f-4f50-a90c-12df15235095" >
+        <http:request-connection protocol="HTTPS" host="api.meteostat.net" port="443" />
+    </http:request-config>
+    <flow name="metostatFlow" doc:id="aa857591-5758-40fb-a191-7e54aec66b4c" >
+        <http:listener doc:name="Listener" doc:id="0d6f3863-95e5-4131-a77e-fc30167530ba" config-ref="HTTP_Listener_config" path="/metostat"/>
+        <http:request method="GET" doc:name="Request" doc:id="568ff013-7e42-4282-a5bd-d32874a9f173" config-ref="HTTP_Request_configuration" path="/v1/history/daily">
+            <http:query-params ><![CDATA[#[output application/java
+---
+{
+	"start" : attributes.queryParams.start,
+	"key" : "lR0cZrnk",
+	"end" : attributes.queryParams.end,
+	"station" : "10637"
+}]]]></http:query-params>
+        </http:request>
+        <ee:transform doc:name="Transform Message" doc:id="435ad881-f882-463b-8d5a-a76df918b2b3" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <ee:transform doc:name="Transform Message" doc:id="14055820-4039-4947-b716-a016fd0000cf" >
+            <ee:message >
+                <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+"maximum Temperature recorded in a month":max(payload.data map $.temperature_max),
+"average precipitation": avg((payload.data filter(($.precipitation)!=null)) map $.precipitation),
+"lowest temperature in week": min (((payload.data)[0 to 6] map $.temperature_min) filter $!=null) ,
+} ]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
